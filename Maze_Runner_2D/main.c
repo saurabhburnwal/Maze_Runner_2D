@@ -2,33 +2,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <stdbool.h> // Required for bool type
-#include <math.h>    // Required for abs()
+#include <stdbool.h>
+#include <math.h>
 
-// --- Game Constants and Global Variables ---
 #define LEVELS 3
 #define ROWS 15
 #define COLS 20
 
-// Maze data
 char maze[LEVELS][ROWS][COLS];
 char items[LEVELS][ROWS][COLS];
-bool revealed[LEVELS][ROWS][COLS]; // NEW: Tracks revealed tiles
+bool revealed[LEVELS][ROWS][COLS];
 
-// Player state
 int playerX, playerY, playerZ;
 int hasKey;
-int score; // Player score
+int score;
 
-// Level data
 int level_start_x[LEVELS];
 int level_start_y[LEVELS];
 
-// Maze generation helpers
 int dx[] = { -2, 2, 0, 0 };
 int dy[] = { 0, 0, -2, 2 };
-
-// --- Maze Generation and Logic ---
 
 void shuffle(int* arr, int n) {
     for (int i = 0; i < n; i++) {
@@ -44,7 +37,7 @@ void initializeMaze(int level) {
         for (int j = 0; j < COLS; j++) {
             maze[level][i][j] = '#';
             items[level][i][j] = ' ';
-            revealed[level][i][j] = false; // Initialize revealed map
+            revealed[level][i][j] = false;
         }
     }
 }
@@ -128,49 +121,41 @@ void generateMaze() {
     playerY = level_start_y[0];
     playerZ = 0;
     hasKey = 0;
-    score = 1000; // Initialize score to 100
+    score = 1000;
 }
-
-// --- Raylib Implementation ---
 
 void DrawMaze(int tileSize);
 void DrawHUD(const char* status);
 void UpdateRevealedMap(int visionRadius);
 
 int main(void) {
-    // 1. Initialization
     const int tileSize = 50;
     const int screenWidth = COLS * tileSize;
-    const int screenHeight = ROWS * tileSize + 100; // Extra space for HUD
-    const int visionRadius = 2; // How many tiles the player can see around them
+    const int screenHeight = ROWS * tileSize + 100;
+    const int visionRadius = 2;
 
     InitWindow(screenWidth, screenHeight, "Maze Runner - The Explorer's Update");
     SetTargetFPS(60);
 
     srand(time(NULL));
     generateMaze();
-    UpdateRevealedMap(visionRadius); // Initial reveal around the start point
+    UpdateRevealedMap(visionRadius);
 
     bool gameWon = false;
     char statusMessage[100] = "Use arrow keys to move. Find the exit!";
     
-    // Movement timing variables
     float moveTimer = 0.0f;
-    const float moveDelay = 0.25f; // Delay between moves in seconds (slowed down)
+    const float moveDelay = 0.15f;
 
-    // 2. Main Game Loop
     while (!WindowShouldClose()) {
 
-        // Update movement timer
         moveTimer += GetFrameTime();
 
-        // 3. Update (Input and Game Logic)
         if (!gameWon) {
             int nextX = playerX;
             int nextY = playerY;
             bool moved = false;
 
-            // Check for continuous movement when keys are held down, but only if enough time has passed
             if (moveTimer >= moveDelay) {
                 if (IsKeyDown(KEY_UP)) { nextX--; moved = true; }
                 else if (IsKeyDown(KEY_DOWN)) { nextX++; moved = true; }
@@ -178,7 +163,7 @@ int main(void) {
                 else if (IsKeyDown(KEY_RIGHT)) { nextY++; moved = true; }
 
                 if (moved) {
-                    moveTimer = 0.0f; // Reset timer when movement occurs
+                    moveTimer = 0.0f;
                 }
             }
 
@@ -191,50 +176,50 @@ int main(void) {
                     sprintf_s(statusMessage, sizeof(statusMessage), "The door is locked! You need a key.");
                 }
                 else {
-                    score--; // Decrease score by 1 for each step taken
-                    if (score < 0) score = 0; // Prevent negative scores
+                    score--;
+                    if (score < 0) score = 0;
                     playerX = nextX;
                     playerY = nextY;
-                    UpdateRevealedMap(visionRadius); // Reveal new area after moving
+                    UpdateRevealedMap(visionRadius);
                     
                     sprintf_s(statusMessage, sizeof(statusMessage), "Level: %d/%d | Score: %d", playerZ + 1, LEVELS, score);
 
                     if (destination_tile == 'D' && hasKey) {
-                        score += 10; // Bonus points for unlocking door
+                        score += 10;
                         sprintf_s(statusMessage, sizeof(statusMessage), "You unlocked the door! +10 points");
                         maze[playerZ][playerX][playerY] = '.';
                         hasKey = 0;
                     }
                     else if (destination_tile == '>') {
                         playerZ++;
-                        score += 5; // Bonus points for going down stairs
-                        UpdateRevealedMap(visionRadius); // Reveal new area on new level
+                        score += 5;
+                        UpdateRevealedMap(visionRadius);
                         sprintf_s(statusMessage, sizeof(statusMessage), "You went down stairs to level %d... +5 points", playerZ + 1);
                     }
                     else if (destination_tile == '<') {
                         playerZ--;
-                        UpdateRevealedMap(visionRadius); // Reveal new area on new level
+                        UpdateRevealedMap(visionRadius);
                         sprintf_s(statusMessage, sizeof(statusMessage), "You went up stairs to level %d...", playerZ + 1);
                     }
                     else if (destination_tile == 'E') {
-                        score += 50; // Big bonus for completing the game
+                        score += 50;
                         gameWon = true;
                     }
 
                     char item_tile = items[playerZ][playerX][playerY];
                     if (item_tile == 'K') {
                         hasKey = 1;
-                        score += 20; // Bonus points for finding key
+                        score += 20;
                         items[playerZ][playerX][playerY] = ' ';
                         sprintf_s(statusMessage, sizeof(statusMessage), "You found a key! +20 points");
                     }
                     else if (item_tile == 'T') {
-                        score -= 10; // Additional penalty for hitting trap
-                        if (score < 0) score = 0; // Don't let score go negative
+                        score -= 10;
+                        if (score < 0) score = 0;
                         items[playerZ][playerX][playerY] = ' ';
                         playerX = level_start_x[playerZ];
                         playerY = level_start_y[playerZ];
-                        UpdateRevealedMap(visionRadius); // Reveal start area after trap
+                        UpdateRevealedMap(visionRadius);
                         sprintf_s(statusMessage, sizeof(statusMessage), "It's a trap! Back to the start. -10 points");
                     }
                 }
@@ -246,11 +231,10 @@ int main(void) {
                 generateMaze();
                 UpdateRevealedMap(visionRadius);
                 gameWon = false;
-                moveTimer = 0.0f; // Reset movement timer when starting new game
+                moveTimer = 0.0f;
             }
         }
 
-        // 4. Drawing
         BeginDrawing();
         ClearBackground(BLACK);
 
@@ -266,16 +250,13 @@ int main(void) {
         EndDrawing();
     }
 
-    // 5. De-Initialization
     CloseWindow();
     return 0;
 }
 
-// Function to update the 'revealed' map based on player position
 void UpdateRevealedMap(int visionRadius) {
     for (int i = playerX - visionRadius; i <= playerX + visionRadius; i++) {
         for (int j = playerY - visionRadius; j <= playerY + visionRadius; j++) {
-            // Check bounds to avoid going outside the maze array
             if (i >= 0 && i < ROWS && j >= 0 && j < COLS) {
                 revealed[playerZ][i][j] = true;
             }
@@ -284,18 +265,16 @@ void UpdateRevealedMap(int visionRadius) {
 }
 
 void DrawMaze(int tileSize) {
-    int visionRadius = 2; // How many tiles player can see
+    int visionRadius = 2;
 
     for (int i = 0; i < ROWS; i++) {
         for (int j = 0; j < COLS; j++) {
-            // Only draw tiles that have been revealed
             if (revealed[playerZ][i][j]) {
                 Vector2 pos = { (float)j * tileSize, (float)i * tileSize };
                 Color tileColor = DARKGRAY;
                 char tileChar = maze[playerZ][i][j];
                 char itemChar = items[playerZ][i][j];
 
-                // Determine base tile color
                 switch (tileChar) {
                 case '.': tileColor = LIGHTGRAY; break;
                 case 'S': tileColor = GREEN; break;
@@ -303,20 +282,17 @@ void DrawMaze(int tileSize) {
                 case '>': tileColor = BROWN; break;
                 case '<': tileColor = BROWN; break;
                 case 'D': tileColor = DARKBROWN; break;
-                default: tileColor = (Color){ 50, 50, 50, 255 }; break; // Darker wall
+                default: tileColor = (Color){ 50, 50, 50, 255 }; break;
                 }
 
-                // Check if the tile is within the player's current vision
                 bool inCurrentVision = (abs(playerX - i) <= visionRadius && abs(playerY - j) <= visionRadius);
 
-                // If not in current vision, dim the color (memory)
                 if (!inCurrentVision) {
                     tileColor = Fade(tileColor, 0.3f);
                 }
 
                 DrawRectangleV(pos, (Vector2) { tileSize, tileSize }, tileColor);
 
-                // Only draw details if they are in the current line of sight
                 if (inCurrentVision) {
                     if (tileChar == '>') DrawText("▼", pos.x + 15, pos.y + 10, 30, RAYWHITE);
                     if (tileChar == '<') DrawText("▲", pos.x + 15, pos.y + 10, 30, RAYWHITE);
@@ -327,10 +303,8 @@ void DrawMaze(int tileSize) {
                     if (itemChar == 'T') DrawCircleV(itemCenter, tileSize / 4, RED);
                 }
             }
-            // If a tile has not been revealed, it's not drawn, so it remains BLACK (fog of war)
         }
     }
-    // Draw player last so it's always on top
     DrawRectangle(playerY * tileSize, playerX * tileSize, tileSize, tileSize, BLUE);
 }
 
@@ -338,15 +312,12 @@ void DrawHUD(const char* status) {
     int hudY = ROWS * 50;
     DrawRectangle(0, hudY, COLS * 50, 100, (Color) { 20, 20, 20, 255 });
 
-    // Draw status message on first line
     DrawText(status, 20, hudY + 20, 20, RAYWHITE);
 
-    // Display score on second line
     char scoreText[50];
     sprintf_s(scoreText, sizeof(scoreText), "Score: %d", score);
     DrawText(scoreText, 20, hudY + 45, 20, YELLOW);
 
-    // Display key status on second line, right side
     const char* keyText = hasKey ? "Key: YES" : "Key: NO";
     Color keyColor = hasKey ? GOLD : GRAY;
     DrawText(keyText, COLS * 50 - MeasureText(keyText, 20) - 20, hudY + 45, 20, keyColor);
